@@ -76,7 +76,7 @@ app.get('/api/export/nansen', async (req, res) => {
     try {
         const alerts = await AlertModel.find().sort({ timestamp: -1 }).limit(100).exec();
         const nansenFormat = alerts.map(a => ({
-            timestamp: new Date(a.timestamp * 1000).toISOString(),
+            timestamp: new Date((a.timestamp || 0) * 1000).toISOString(),
             protocol: a.dexName,
             attacker_address: a.attacker,
             victim_address: a.victim,
