@@ -165,23 +165,47 @@ export async function startAgent() {
   console.log(`🛡️ SandwichShield Live Indexer Started on ${MANTLE_RPC}`);
   console.log(`Listening for Swap events on MockDEX: ${MOCK_DEX_ADDRESS}`);
   
-  // Listen to live Swap events
-  dexContract.on("Swap", (sender, amount0In, amount1In, amount0Out, amount1Out, to, event) => {
-      console.log(`[Event] Swap detected in block ${event.log.blockNumber} from ${sender}`);
-      eventBuffer.push({
-          txHash: event.log.transactionHash,
-          sender,
-          amount0In,
-          amount1In,
-          amount0Out,
-          amount1Out,
-          to,
-          blockNumber: event.log.blockNumber
-      });
-  });
+  // Stateless Polling mechanism to prevent public RPC "filter not found" errors
+  let lastBlock = await provider.getBlockNumber();
 
-  // Analyze buffer every 5 seconds for sandwich patterns
-  setInterval(analyzeBuffer, 5000);
+  setInterval(async () => {
+      try {
+          const currentBlock = await provider.getBlockNumber();
+          if (currentBlock <= lastBlock) return;
+
+          const logs = await provider.getLogs({
+              address: MOCK_DEX_ADDRESS,
+              fromBlock: lastBlock + 1,
+              toBlock: currentBlock
+          });
+
+          for (const log of logs) {
+              try {
+                  const parsed = dexContract.interface.parseLog({ topics: [...log.topics], data: log.data });
+                  if (parsed && parsed.name === "Swap") {
+                      console.log(`[Event] Swap detected in block ${log.blockNumber} from ${parsed.args[0]}`);
+                      eventBuffer.push({
+                          txHash: log.transactionHash,
+                          sender: parsed.args[0],
+                          amount0In: parsed.args[1],
+                          amount1In: parsed.args[2],
+                          amount0Out: parsed.args[3],
+                          amount1Out: parsed.args[4],
+                          to: parsed.args[5],
+                          blockNumber: log.blockNumber
+                      });
+                  }
+              } catch (e) {
+                  // Not a target event
+              }
+          }
+          lastBlock = currentBlock;
+          
+          await analyzeBuffer(); // Analyze immediately after fetching new blocks
+      } catch (err: any) {
+          // Ignore transient RPC timeouts
+      }
+  }, 4000); // Poll every 4 seconds
 }
 
 async function analyzeBuffer() {
