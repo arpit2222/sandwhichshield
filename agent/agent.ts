@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import { exec } from 'child_process';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { sendTelegramAlert } from './telegram-bot';
@@ -88,6 +89,18 @@ app.get('/api/export/nansen', async (req, res) => {
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// --- Trigger Stress Test Simulation ---
+app.post('/api/simulate', (req, res) => {
+    exec('npx ts-node stress-test.ts', { cwd: __dirname }, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Simulation error: ${error.message}`);
+            return;
+        }
+        console.log(`Simulation complete.`);
+    });
+    res.json({ success: true, message: "Stress test triggered!" });
 });
 
 app.get('/api/stats', async (req, res) => {

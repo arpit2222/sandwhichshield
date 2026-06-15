@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 // Helper interface for typing the alerts from our new API
 interface Alert {
@@ -31,6 +32,18 @@ export default function Home() {
   const [stats, setStats] = useState<Stat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  const handleStressTest = async () => {
+    setIsSimulating(true);
+    toast.info("🌪️ Stress Test Launched! Broadcasting attacks to Mempool...");
+    try {
+        await fetch(`${API_BASE}/api/simulate`, { method: 'POST' });
+    } catch (err) {
+        toast.error("Failed to trigger simulation");
+    }
+    setTimeout(() => setIsSimulating(false), 10000);
+  };
   
   const totalLoss24h = stats.reduce((acc, stat) => acc + stat.totalLoss, 0);
   const totalAttacks = stats.reduce((acc, stat) => acc + stat.attackCount, 0);
@@ -104,6 +117,13 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Button 
+                onClick={handleStressTest} 
+                disabled={isSimulating}
+                className="bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 border-0 transition-all active:scale-95"
+            >
+              {isSimulating ? "Broadcasting..." : "🚀 Launch Stress Test"}
+            </Button>
             {error ? (
                <div className="px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20">
                  <span className="text-rose-400 text-sm font-medium">API Offline</span>
