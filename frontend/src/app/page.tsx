@@ -24,6 +24,7 @@ interface Stat {
 }
 
 export default function Home() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +36,9 @@ export default function Home() {
   useEffect(() => {
     async function fetchApiData() {
       try {
-        // Fetch from the local Agent Backend API
-        const alertsRes = await fetch('http://localhost:4000/api/alerts');
-        const statsRes = await fetch('http://localhost:4000/api/stats');
+        // Fetch from the Agent Backend API
+        const alertsRes = await fetch(`${API_BASE}/api/alerts`);
+        const statsRes = await fetch(`${API_BASE}/api/stats`);
 
         if (!alertsRes.ok || !statsRes.ok) {
             throw new Error("Failed to connect to Backend API");
@@ -147,7 +148,7 @@ export default function Home() {
                 <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">BGA Public Good</Badge>
               </h2>
               <div className="flex gap-2">
-                <a href="http://localhost:4000/api/export/nansen" target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition-colors flex items-center">Nansen Export</a>
+                <a href={`${API_BASE}/api/export/nansen`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition-colors flex items-center">Nansen Export</a>
                 <Badge variant="outline" className="text-indigo-400 border-indigo-400/30 bg-indigo-400/10">MongoDB Cluster</Badge>
               </div>
             </div>
