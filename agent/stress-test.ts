@@ -20,6 +20,8 @@ async function runStressTest() {
     console.log(`\n🌪️ Starting STRESS TEST on MockDEX (${MOCK_DEX_ADDRESS})...`);
     console.log(`Firing 5 back-to-back sandwich attacks! Check the UI!`);
 
+    let currentNonce = await attackerWallet.getNonce();
+
     for (let i = 1; i <= 5; i++) {
         const victimWallet = ethers.Wallet.createRandom().connect(provider);
         console.log(`\n[Attack ${i}/5] Generating random victim: ${victimWallet.address}`);
@@ -33,9 +35,9 @@ async function runStressTest() {
         const vicOut = (baseAmount * 0.4).toFixed(4);
 
         try {
-            await dexContractAttacker.executeSwap(ethers.parseEther(amtStr), 0, 0, ethers.parseEther(amtStrIn), attackerWallet.address);
-            await dexContractAttacker.executeSwap(ethers.parseEther(vicIn), 0, 0, ethers.parseEther(vicOut), victimWallet.address);
-            await dexContractAttacker.executeSwap(0, ethers.parseEther(amtStrIn), ethers.parseEther(amtStrOut), 0, attackerWallet.address);
+            await dexContractAttacker.executeSwap(ethers.parseEther(amtStr), 0, 0, ethers.parseEther(amtStrIn), attackerWallet.address, { nonce: currentNonce++ });
+            await dexContractAttacker.executeSwap(ethers.parseEther(vicIn), 0, 0, ethers.parseEther(vicOut), victimWallet.address, { nonce: currentNonce++ });
+            await dexContractAttacker.executeSwap(0, ethers.parseEther(amtStrIn), ethers.parseEther(amtStrOut), 0, attackerWallet.address, { nonce: currentNonce++ });
             console.log(`✅ Attack ${i} Broadcasted!`);
         } catch (e: any) {
             console.error(`❌ Attack ${i} Failed:`, e.message);
