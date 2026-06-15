@@ -226,11 +226,11 @@ async function analyzeBuffer() {
         // The attacker's 2 transactions must span a short distance (e.g. within 10 testnet blocks)
         const blockSpread = tx3.blockNumber - tx1.blockNumber;
 
-        // If Tx1 and Tx3 are the same sender, and Tx2 is someone else -> SANDWICH!
-        if (tx1.sender === tx3.sender && tx1.sender !== tx2.sender && blockSpread <= 20) {
+        // If Tx1 and Tx3 are the same receiver (attacker), and Tx2 is someone else (victim) -> SANDWICH!
+        if (tx1.to === tx3.to && tx1.to !== tx2.to && blockSpread <= 20) {
             console.log(`\n🚨 MEV SANDWICH DETECTED ACROSS BLOCKS ${tx1.blockNumber}-${tx3.blockNumber}!`);
-            console.log(`Attacker: ${tx1.sender}`);
-            console.log(`Victim: ${tx2.sender}`);
+            console.log(`Attacker: ${tx1.to}`);
+            console.log(`Victim: ${tx2.to}`);
             
             // --- DETERMINISTIC DATA ANALYSIS ---
             const attackerProfitWei = (tx3.amount0Out + tx3.amount1Out) - (tx1.amount0In + tx1.amount1In);
@@ -255,10 +255,10 @@ async function analyzeBuffer() {
             // --- BYREAL AGENTIC WALLET DEFENSE SIMULATION ---
             if (aiScore >= 85) {
                 console.log(`⚡ [Byreal Integration] High AI Threat Detected (${aiScore}/100)!`);
-                console.log(`⚡ [Byreal Integration] Simulating automated trading pause for Wallet ${tx2.sender}...`);
+                console.log(`⚡ [Byreal Integration] Simulating automated trading pause for Wallet ${tx2.to}...`);
             }
 
-            await recordAttack(tx2.sender, tx1.sender, lossUSD, aiScore, tx2.txHash, "MockDEX");
+            await recordAttack(tx2.to, tx1.to, lossUSD, aiScore, tx2.txHash, "MockDEX");
             
             indicesToRemove.add(i);
             indicesToRemove.add(i+1);
