@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node agent.ts"
+    "start": "node --max-old-space-size=400 -r ts-node/register/transpile-only agent.ts"
   },
   "keywords": [],
   "author": "",
