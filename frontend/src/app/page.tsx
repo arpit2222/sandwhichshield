@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ interface Stat {
 export default function Home() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const previousAlertCount = useRef(0);
   const [stats, setStats] = useState<Stat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,6 +48,19 @@ export default function Home() {
 
         const alertsData: Alert[] = await alertsRes.json();
         const statsData: Stat[] = await statsRes.json();
+
+        // Trigger Toast for new alerts
+        if (previousAlertCount.current > 0 && alertsData.length > previousAlertCount.current) {
+            const diff = alertsData.length - previousAlertCount.current;
+            for(let i=0; i<Math.min(diff, 10); i++) {
+               const newAlert = alertsData[i];
+               toast.error(`🚨 $${newAlert.lossUSD.toLocaleString(undefined, {minimumFractionDigits: 2})} Extracted by ${newAlert.attacker.substring(0,6)}...`, {
+                 description: `AI Threat Score: ${newAlert.aiScore}/100`,
+                 duration: 8000,
+               });
+            }
+        }
+        previousAlertCount.current = alertsData.length;
 
         setAlerts(alertsData);
         setStats(statsData);
