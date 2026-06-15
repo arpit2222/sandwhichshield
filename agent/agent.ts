@@ -211,62 +211,68 @@ export async function startAgent() {
 async function analyzeBuffer() {
     if (eventBuffer.length < 3) return; // Need at least 3 swaps for a sandwich
     
-    // Group events by block number
-    const blocks = [...new Set(eventBuffer.map(e => e.blockNumber))];
+    // Sort chronologically by block number
+    eventBuffer.sort((a, b) => a.blockNumber - b.blockNumber);
+    let indicesToRemove = new Set<number>();
     
-    for (const blockNum of blocks) {
-        const blockEvents = eventBuffer.filter(e => e.blockNumber === blockNum);
-        
-        // Search for pattern: [Attacker Buy] -> [Victim Buy] -> [Attacker Sell]
-        if (blockEvents.length >= 3) {
-            // Simplistic pattern matching for the demo
-            const tx1 = blockEvents[0];
-            const tx2 = blockEvents[1]; // Victim
-            const tx3 = blockEvents[blockEvents.length - 1];
+    // Scan for pattern sequentially regardless of block boundaries
+    for (let i = 0; i <= eventBuffer.length - 3; i++) {
+        if (indicesToRemove.has(i)) continue;
 
-            // If Tx1 and Tx3 are the same sender, and Tx2 is someone else -> SANDWICH!
-            if (tx1.sender === tx3.sender && tx1.sender !== tx2.sender) {
-                console.log(`\n🚨 MEV SANDWICH DETECTED IN BLOCK ${blockNum}!`);
-                console.log(`Attacker: ${tx1.sender}`);
-                console.log(`Victim: ${tx2.sender}`);
-                
-                // --- DETERMINISTIC DATA ANALYSIS ---
-                // We calculate the exact MEV extracted by evaluating the Attacker's net profit
-                // Attacker Profit = (Tx3 Out) - (Tx1 In)
-                const attackerProfitWei = (tx3.amount0Out + tx3.amount1Out) - (tx1.amount0In + tx1.amount1In);
-                
-                // Fallback to victim slippage if the sandwich is unbalanced
-                const victimSlippageWei = (tx2.amount0In + tx2.amount1In) - (tx2.amount0Out + tx2.amount1Out);
-                
-                const extractedWei = attackerProfitWei > 0n ? attackerProfitWei : victimSlippageWei;
-                
-                // Convert BigInt Wei to ETH float, and multiply by Live Bybit Oracle Price
-                const extractedEth = parseFloat(ethers.formatEther(extractedWei));
-                const ethPrice = await getLiveEthPriceFromBybit();
-                const lossUSD = parseFloat((extractedEth * ethPrice).toFixed(2));
+        const tx1 = eventBuffer[i];
+        const tx2 = eventBuffer[i+1]; // Victim
+        const tx3 = eventBuffer[i+2];
 
-                // --- AI THREAT SCORING ---
-                let aiScore = 0;
-                if (victimSlippageWei > 0n) {
-                    const extractionEfficiency = Number(extractedWei) / Number(victimSlippageWei);
-                    const clampedEfficiency = Math.min(Math.max(extractionEfficiency, 0.5), 1.0);
-                    aiScore = Math.floor(clampedEfficiency * 100);
-                } else {
-                    aiScore = Math.floor(Math.random() * 20) + 70; // Fallback heuristic
-                }
+        // The attacker's 2 transactions must span a short distance (e.g. within 10 testnet blocks)
+        const blockSpread = tx3.blockNumber - tx1.blockNumber;
 
-                // --- BYREAL AGENTIC WALLET DEFENSE SIMULATION ---
-                if (aiScore >= 85) {
-                    console.log(`⚡ [Byreal Integration] High AI Threat Detected (${aiScore}/100)!`);
-                    console.log(`⚡ [Byreal Integration] Simulating automated trading pause for Wallet ${tx2.sender}...`);
-                }
+        // If Tx1 and Tx3 are the same sender, and Tx2 is someone else -> SANDWICH!
+        if (tx1.sender === tx3.sender && tx1.sender !== tx2.sender && blockSpread <= 20) {
+            console.log(`\n🚨 MEV SANDWICH DETECTED ACROSS BLOCKS ${tx1.blockNumber}-${tx3.blockNumber}!`);
+            console.log(`Attacker: ${tx1.sender}`);
+            console.log(`Victim: ${tx2.sender}`);
+            
+            // --- DETERMINISTIC DATA ANALYSIS ---
+            const attackerProfitWei = (tx3.amount0Out + tx3.amount1Out) - (tx1.amount0In + tx1.amount1In);
+            const victimSlippageWei = (tx2.amount0In + tx2.amount1In) - (tx2.amount0Out + tx2.amount1Out);
+            
+            const extractedWei = attackerProfitWei > 0n ? attackerProfitWei : victimSlippageWei;
+            
+            const extractedEth = parseFloat(ethers.formatEther(extractedWei));
+            const ethPrice = await getLiveEthPriceFromBybit();
+            const lossUSD = parseFloat((extractedEth * ethPrice).toFixed(2));
 
-                await recordAttack(tx2.sender, tx1.sender, lossUSD, aiScore, tx2.txHash, "MockDEX");
-                
-                // Clear the analyzed events
-                eventBuffer = eventBuffer.filter(e => e.blockNumber !== blockNum);
+            // --- AI THREAT SCORING ---
+            let aiScore = 0;
+            if (victimSlippageWei > 0n) {
+                const extractionEfficiency = Number(extractedWei) / Number(victimSlippageWei);
+                const clampedEfficiency = Math.min(Math.max(extractionEfficiency, 0.5), 1.0);
+                aiScore = Math.floor(clampedEfficiency * 100);
+            } else {
+                aiScore = Math.floor(Math.random() * 20) + 70;
             }
+
+            // --- BYREAL AGENTIC WALLET DEFENSE SIMULATION ---
+            if (aiScore >= 85) {
+                console.log(`⚡ [Byreal Integration] High AI Threat Detected (${aiScore}/100)!`);
+                console.log(`⚡ [Byreal Integration] Simulating automated trading pause for Wallet ${tx2.sender}...`);
+            }
+
+            await recordAttack(tx2.sender, tx1.sender, lossUSD, aiScore, tx2.txHash, "MockDEX");
+            
+            indicesToRemove.add(i);
+            indicesToRemove.add(i+1);
+            indicesToRemove.add(i+2);
+            i += 2; // Skip the processed sequence
         }
+    }
+    
+    // Clear the analyzed events
+    eventBuffer = eventBuffer.filter((_, idx) => !indicesToRemove.has(idx));
+    
+    // Memory leak protection: keep only the latest 100 orphaned events
+    if (eventBuffer.length > 100) {
+        eventBuffer = eventBuffer.slice(eventBuffer.length - 100);
     }
 }
 
